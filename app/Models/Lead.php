@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Enums\LeadStatus;
+use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 
 #[Fillable(['tenant_id','customer_id','assigned_to','name','email','phone','company','estimated_value','source','status','next_follow_up','notes'])]
@@ -48,4 +49,15 @@ class Lead extends Model
             });
         });
     }
+
+    public function scopeForUser(Builder $query, User $user): Builder
+    {
+        return match(true) {
+            $user->hasRole('super-admin') => $query,
+            $user->hasRole('admin')       => $query->where('tenant_id', $user->current_tenant_id),
+            $user->hasRole('seller')      => $query->where('tenant_id', $user->current_tenant_id)
+                                                ->where('assigned_to', $user->id),
+            default                       => $query->whereRaw('1 = 0'),
+        };
+}
 }

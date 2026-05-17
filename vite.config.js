@@ -21,8 +21,11 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 5173,
         strictPort: true,
+        cors: true,
         hmr: {
             host: 'crm-visualcont.local',
+            protocol: 'ws',
         },
+        origin: 'http://crm-visualcont.local:5173',
     },
 });

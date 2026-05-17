@@ -12,7 +12,6 @@ class CreateLeadAction
         $user = Auth::user();
         $data['tenant_id'] = $user->current_tenant_id;
         
-        // Asignación automática: Si es seller
         if (!isset($data['assigned_to']) && $user->hasRole('seller')) {
             $data['assigned_to'] = $user->id;
         }

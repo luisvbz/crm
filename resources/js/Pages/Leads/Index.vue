@@ -1,8 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import draggable from 'vuedraggable';
+import LeadFormModal from './Partials/LeadFormModal.vue';
+import { useToast } from 'vue-toastification';
 
 const props = defineProps({
     leads: {
@@ -15,28 +17,48 @@ const props = defineProps({
     }
 });
 
+const toast = useToast();
+const isModalOpen = ref(false);
+const selectedLead = ref(null);
 
 const columns = ref({});
 
-props.statuses.forEach(status => {
-    columns.value[status] = props.leads.filter(lead => lead.status === status);
-});
+watch(() => props.leads, (newLeads) => {
+    const fresh = {};
+    props.statuses.forEach(status => {
+        fresh[status] = newLeads.filter(lead => lead.status === status);
+    });
+    columns.value = fresh;
+}, { immediate: true, deep: true });
 
-// Evento al soltar tarjeta en otra lista
 const onDragChange = (event, columnStatus) => {
     if (event.added) {
         const lead = event.added.element;
-        // Petición PUT para lanzar el UpdateLeadStatusAction
         router.put(route('leads.updateStatus', lead.id), {
             status: columnStatus
         }, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                // Podríamos mostrar un Toast aquí gracias al Inerita visit successful
+                toast.success(`Estado actualizado a ${columnStatus}`);
             }
         });
     }
+};
+
+const openCreateModal = () => {
+    selectedLead.value = null;
+    isModalOpen.value = true;
+};
+
+const openEditModal = (lead) => {
+    selectedLead.value = lead;
+    isModalOpen.value = true;
+};
+
+const closeModal = () => {
+    isModalOpen.value = false;
+    setTimeout(() => selectedLead.value = null, 300);
 };
 
 const getStatusColor = (status) => {
@@ -53,7 +75,6 @@ const getStatusColor = (status) => {
 
 const formatCurrency = (value) => {
     if (!value) return '-';
-    // Formatear la moneda usando el API nativo de Intl
     return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
 };
 </script>
@@ -61,7 +82,6 @@ const formatCurrency = (value) => {
 <template>
 
     <Head title="Pipeline de Leads" />
-
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
@@ -70,8 +90,7 @@ const formatCurrency = (value) => {
                     <p class="text-body text-neutral-500 mt-1">Gestiona y avanza tus oportunidades de venta arrastrando
                         las tarjetas.</p>
                 </div>
-                <!-- Ideal para disparar un Modal más adelante -->
-                <button
+                <button @click="openCreateModal"
                     v-if="$page.props.auth.permissions && ($page.props.auth.permissions.includes('manage leads') || $page.props.auth.permissions.includes('update own leads'))"
                     class="btn btn-primary whitespace-nowrap">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,13 +100,9 @@ const formatCurrency = (value) => {
                 </button>
             </div>
         </template>
-
-        <!-- Kanban Board Area -->
         <div class="flex overflow-x-auto pb-10 pt-2 gap-5 items-start min-h-[70vh] w-full snap-x">
-
             <div v-for="status in statuses" :key="status"
                 class="flex-shrink-0 w-[340px] bg-neutral-100/70 border border-neutral-200 rounded-xl p-3 flex flex-col max-h-full snap-center">
-                <!-- Column Header -->
                 <div class="flex items-center justify-between mb-4 px-1">
                     <div class="flex items-center gap-2">
                         <h3 class="font-bold text-neutral-800 uppercase text-[11px] tracking-wide">{{ status }}</h3>
@@ -98,15 +113,24 @@ const formatCurrency = (value) => {
                     </div>
                 </div>
 
-                <!-- Draggable Container -->
                 <draggable :list="columns[status]" group="leads" itemKey="id"
                     :disabled="!$page.props.auth.permissions || !($page.props.auth.permissions.includes('manage leads') || $page.props.auth.permissions.includes('update own leads'))"
                     @change="onDragChange($event, status)" class="min-h-[150px] flex-1 space-y-3"
                     ghost-class="opacity-40 border-2 border-dashed border-primary-400 bg-primary-100 rounded-lg">
                     <template #item="{ element }">
-                        <div
-                            class="card cursor-grab active:cursor-grabbing hover:border-primary-400 p-4 shrink-0 transition-colors">
-                            <div class="flex items-start justify-between mb-3 gap-2">
+                        <div @dblclick="openEditModal(element)"
+                            class="card cursor-grab active:cursor-grabbing hover:border-primary-400 p-4 shrink-0 transition-colors relative group">
+
+                            <button @click="openEditModal(element)"
+                                class="absolute top-3 right-3 text-neutral-400 hover:text-primary-500 opacity-0 group-hover:opacity-100 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
+                                    </path>
+                                </svg>
+                            </button>
+
+                            <div class="flex items-start justify-between mb-3 gap-2 pr-6">
                                 <div class="min-w-0">
                                     <h4 class="font-semibold text-neutral-900 text-sm leading-tight truncate">{{
                                         element.name }}</h4>
@@ -151,7 +175,7 @@ const formatCurrency = (value) => {
                     </template>
                 </draggable>
             </div>
-
         </div>
     </AuthenticatedLayout>
+    <LeadFormModal :show="isModalOpen" :lead="selectedLead" @close="closeModal" />
 </template>
