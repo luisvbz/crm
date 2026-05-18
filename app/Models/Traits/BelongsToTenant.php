@@ -16,10 +16,10 @@ trait BelongsToTenant
 
         static::addGlobalScope('tenant', function (Builder $builder) {
             if (auth()->check()) {
-                $builder->where(
-                    'tenant_id',
-                    auth()->user()->current_tenant_id
-                );
+                $user = auth()->user();
+                if (!$user->hasRole('super-admin') && $user->current_tenant_id) {
+                    $builder->where('tenant_id', $user->current_tenant_id);
+                }
             }
         });
     }

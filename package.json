@@ -20,6 +20,7 @@
         "vue": "^3.4.0"
     },
     "dependencies": {
+        "@lucide/vue": "^1.16.0",
         "@vee-validate/i18n": "^4.15.1",
         "@vee-validate/rules": "^4.15.1",
         "vee-validate": "^4.15.1",

@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use App\Actions\Leads\CreateLeadAction;
 use App\Actions\Leads\UpdateLeadAction;
 use App\Actions\Leads\UpdateLeadStatusAction;
+use App\Actions\Leads\ConvertLeadToCustomerAction;
 use App\Enums\LeadStatus;
 
 use App\Http\Requests\StoreLeadRequest;
@@ -19,22 +20,13 @@ class LeadsController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $tenantId = $user->current_tenant_id;
-        
-        $query = Lead::query();
 
-        if ($user->hasRole('super-admin')) {
-            // Acceso sin restricciones globales
-        } elseif ($user->hasRole('admin')) {
-            $query->where('tenant_id', $tenantId);
-        } elseif ($user->hasRole('seller')) {
-            $query->where('tenant_id', $tenantId)->where('assigned_to', $user->id);
-        } else {
-            $query->whereRaw('1 = 0');
-        }
-        
-        $leads = $query->get();
-        $statuses = array_column(LeadStatus::cases(), 'value');
+        $leads = Lead::forUser($user)->get();
+
+        $statuses = collect(LeadStatus::cases())->map(fn($status) => [
+            'value' => $status->value,
+            'label' => $status->label(),
+        ]);
 
         return Inertia::render('Leads/Index', [
             'leads' => $leads,
@@ -62,7 +54,24 @@ class LeadsController extends Controller
 
         return redirect()->back();
     }
-    
+
+    public function convert(Lead $lead, ConvertLeadToCustomerAction $action)
+    {
+        $this->authorize('update', $lead);
+
+        if ($lead->status !== LeadStatus::WON) {
+            return redirect()->back()->with('error', 'Solo se pueden convertir leads ganados.');
+        }
+
+        if ($lead->isConverted()) {
+            return redirect()->back()->with('error', 'Este lead ya fue convertido.');
+        }
+
+        $action->execute($lead);
+
+        return redirect()->back()->with('success', 'Lead convertido a cliente exitosamente.');
+    }
+
     public function destroy(Lead $lead)
     {
         $lead->delete();

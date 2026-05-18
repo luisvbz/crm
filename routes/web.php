@@ -5,15 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\LeadsController;
-
-/* Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-}); */
+use App\Http\Controllers\CustomersController;
 
 Route::get('/', function () {
     return Inertia::render('Dashboard');
@@ -26,6 +18,9 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('leads', LeadsController::class);
     Route::put('leads/{lead}/status', [LeadsController::class, 'updateStatus'])->name('leads.updateStatus');
+    Route::post('leads/{lead}/convert', [LeadsController::class, 'convert'])->name('leads.convert');
+
+    Route::get('/customers', [CustomersController::class, 'index'])->name('customers.index');
 });
 
 require __DIR__.'/auth.php';
